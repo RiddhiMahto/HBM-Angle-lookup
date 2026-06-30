@@ -59,9 +59,18 @@ st.markdown(
 
     html, body, [class*="css"]  {{ font-family: 'Inter', sans-serif; }}
 
-    .stApp {{ background: {BG}; }}
+    html, body {{ overflow-x: hidden; max-width: 100vw; }}
 
-    .block-container {{ padding-top: 1.6rem; padding-bottom: 2.5rem; max-width: 760px; }}
+    *, *::before, *::after {{ box-sizing: border-box; }}
+
+    .stApp {{ background: {BG}; overflow-x: hidden; max-width: 100vw; }}
+
+    .block-container {{
+        padding-top: 1.6rem;
+        padding-bottom: 2.5rem;
+        max-width: 760px;
+        overflow-x: hidden;
+    }}
 
     .juaristi-header {{
         background: {TEXT_DARK};
@@ -110,6 +119,7 @@ st.markdown(
         grid-template-columns: 1fr 1fr;
         gap: 14px;
         margin-top: 12px;
+        min-width: 0;
     }}
     .value-box {{
         background: {BG};
@@ -117,6 +127,8 @@ st.markdown(
         border-radius: 10px;
         padding: 16px;
         text-align: center;
+        min-width: 0;
+        overflow-wrap: anywhere;
     }}
     .value-label {{
         color: {TEXT_MUTED};
@@ -132,6 +144,7 @@ st.markdown(
         font-size: 1.9rem;
         font-weight: 700;
         line-height: 1.1;
+        overflow-wrap: anywhere;
     }}
     .value-unit {{ color: {TEXT_MUTED}; font-size: 0.9rem; font-weight: 500; }}
 
@@ -142,6 +155,7 @@ st.markdown(
         margin-top: 16px;
         padding-top: 14px;
         border-top: 1px solid {BORDER};
+        min-width: 0;
     }}
     .meta-chip {{
         background: {BG};
@@ -151,6 +165,8 @@ st.markdown(
         font-size: 0.8rem;
         color: {TEXT_MUTED};
         font-weight: 500;
+        max-width: 100%;
+        overflow-wrap: anywhere;
     }}
     .meta-chip b {{ color: {TEXT_DARK}; }}
 
@@ -171,6 +187,25 @@ st.markdown(
         margin-top: 14px;
     }}
 
+    .stale-banner {{
+        color: #8a4b00;
+        background: #fff1d6;
+        border: 1.5px solid #f0a93f;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 0.85rem;
+        margin: 4px 0 10px 0;
+        line-height: 1.4;
+    }}
+
+    .result-panel.stale {{
+        background: #fffaf0;
+        border: 1.5px solid #f0a93f;
+        opacity: 0.62;
+        filter: grayscale(35%);
+        position: relative;
+    }}
+
     .orient-thumb-wrap {{
         border: 1px solid {BORDER};
         border-radius: 8px;
@@ -178,6 +213,7 @@ st.markdown(
         padding: 6px;
         margin-bottom: 6px;
         text-align: center;
+        min-width: 0;
     }}
     .orient-thumb-wrap.selected {{
         border-color: {ACCENT};
@@ -198,6 +234,8 @@ st.markdown(
         border-radius: 12px;
         padding: 14px 18px;
         margin: 4px 0 18px 0;
+        min-width: 0;
+        flex-wrap: wrap;
     }}
     .confirm-panel img {{
         width: 92px;
@@ -208,12 +246,30 @@ st.markdown(
         font-size: 0.95rem;
         color: {TEXT_DARK};
         font-weight: 600;
+        min-width: 0;
+        overflow-wrap: anywhere;
     }}
     .confirm-panel .confirm-sub {{
         font-size: 0.8rem;
         color: {TEXT_MUTED};
         font-weight: 400;
         margin-top: 2px;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }}
+
+    /* ---- Mobile breakpoint ---- */
+    @media (max-width: 480px) {{
+        .block-container {{ padding-left: 0.8rem; padding-right: 0.8rem; }}
+        .juaristi-header {{ padding: 16px 18px; }}
+        .juaristi-header h1 {{ font-size: 1.15rem; }}
+        .juaristi-header p {{ font-size: 0.8rem; }}
+        .value-number {{ font-size: 1.4rem; }}
+        .value-box {{ padding: 10px; }}
+        .result-panel {{ padding: 16px; }}
+        .confirm-panel {{ padding: 12px 14px; gap: 12px; }}
+        .confirm-panel img {{ width: 64px; }}
+        .meta-chip {{ font-size: 0.74rem; padding: 4px 9px; }}
     }}
 
     div[role="radiogroup"] label p {{ font-size: 0.95rem !important; color: {TEXT_DARK} !important; }}
@@ -417,6 +473,15 @@ if check_clicked:
 
 result = st.session_state.get("result")
 
+# Has the operator changed plane / orientation / angle since the last Check?
+is_stale = False
+if result is not None and not result.get("error"):
+    is_stale = (
+        result["plane"] != plane
+        or result["orientation"] != orientation
+        or abs(result["angle_value"] - angle_value) > 1e-6
+    )
+
 if result is None:
     st.markdown(
         '<div class="warn-note" style="text-align:center;">'
@@ -443,9 +508,18 @@ else:
             f'showing nearest value: {deg_part}° {min_part}\'</div>'
         )
 
+    if is_stale:
+        st.markdown(
+            '<div class="stale-banner">⚠️ Selection changed since last check — '
+            'the values below are for the <b>previous</b> setup. Press <b>✓ Check</b> again to refresh.</div>',
+            unsafe_allow_html=True,
+        )
+
+    panel_class = "result-panel stale" if is_stale else "result-panel"
+
     st.markdown(
         textwrap.dedent(f"""\
-        <div class="result-panel">
+        <div class="{panel_class}">
             <div class="section-title">Lookup Result</div>
             <div class="result-grid">
                 <div class="value-box">
