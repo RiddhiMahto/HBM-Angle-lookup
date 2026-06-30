@@ -387,29 +387,57 @@ with bordered_container():
             minute = st.selectbox("Minutes", [0, 30], index=0)
         angle_value = min(deg + minute / 60.0, 90.0)
 
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+    check_clicked = st.button("✓ Check", key="check_btn", use_container_width=True, type="primary")
+
 # ---------------------------------------------------------------------------
 # Lookup logic — snap to nearest tabulated 0.5° increment
 # ---------------------------------------------------------------------------
 def nearest_tabulated_angle(value):
     return round(value * 2) / 2.0
 
-lookup_angle = nearest_tabulated_angle(angle_value)
-
 subset = df[(df["plane"] == plane) & (df["orientation"] == orientation)]
-row = subset.iloc[(subset["angle"] - lookup_angle).abs().argsort()[:1]]
 
-if row.empty:
+if check_clicked:
+    lookup_angle = nearest_tabulated_angle(angle_value)
+    row = subset.iloc[(subset["angle"] - lookup_angle).abs().argsort()[:1]]
+
+    if row.empty:
+        st.session_state["result"] = {"error": True}
+    else:
+        st.session_state["result"] = {
+            "error": False,
+            "neck_c": float(row["neck_C"].values[0]),
+            "head_a": float(row["head_A"].values[0]),
+            "matched_angle": float(row["angle"].values[0]),
+            "angle_value": angle_value,
+            "plane": plane,
+            "orientation": orientation,
+        }
+
+result = st.session_state.get("result")
+
+if result is None:
+    st.markdown(
+        '<div class="warn-note" style="text-align:center;">'
+        'Set the plane, orientation and angle above, then press <b>✓ Check</b> to look up the values.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+elif result["error"]:
     st.error("No matching entry found in the angle table. Please check your inputs.")
 else:
-    neck_c = float(row["neck_C"].values[0])
-    head_a = float(row["head_A"].values[0])
-    matched_angle = float(row["angle"].values[0])
+    neck_c = result["neck_c"]
+    head_a = result["head_a"]
+    matched_angle = result["matched_angle"]
+    r_plane = result["plane"]
+    r_orientation = result["orientation"]
 
     deg_part = int(matched_angle)
     min_part = int(round((matched_angle - deg_part) * 60))
 
     exact_note = ""
-    if abs(matched_angle - angle_value) > 1e-6:
+    if abs(matched_angle - result["angle_value"]) > 1e-6:
         exact_note = (
             f'<div class="warn-note">⚠️ Table is tabulated in 30\' steps — '
             f'showing nearest value: {deg_part}° {min_part}\'</div>'
@@ -430,8 +458,8 @@ else:
                 </div>
             </div>
             <div class="meta-row">
-                <div class="meta-chip">Plane: <b>{plane}</b></div>
-                <div class="meta-chip">Orientation: <b>{ORIENTATION_INFO[orientation]['label']}</b></div>
+                <div class="meta-chip">Plane: <b>{r_plane}</b></div>
+                <div class="meta-chip">Orientation: <b>{ORIENTATION_INFO[r_orientation]['label']}</b></div>
                 <div class="meta-chip">Angle: <b>{deg_part}° {min_part}'</b></div>
             </div>
             {exact_note}
